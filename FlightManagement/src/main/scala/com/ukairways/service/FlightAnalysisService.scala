@@ -29,10 +29,10 @@ object FlightAnalysisService {
 
 
     // Perform flight analysis tasks using FlightAnalysis object methods
-    //val flightsPerMonth = FlightAnalysis.findFlightsPerMonth(flightsDS)
-    //val topFrequentFlyers = FlightAnalysis.findTopFrequentFlyers(passengersDS, flightsDS)
-    //val maxCountriesWithoutUK = FlightAnalysis.findMaxCountriesWithoutUK(flightsDS)
-    //val passengersOnMultipleFlights = FlightAnalysis.findPassengersOnMultipleFlightsTogether(flightsDS, passengersDS)
+    val flightsPerMonth = FlightAnalysis.findFlightsPerMonth(flightsDS)
+    val topFrequentFlyers = FlightAnalysis.findTopFrequentFlyers(passengersDS, flightsDS)
+    val maxCountriesWithoutUK = FlightAnalysis.findMaxCountriesWithoutUK(flightsDS)
+    val passengersOnMultipleFlights = FlightAnalysis.findPassengersOnMultipleFlightsTogether(flightsDS, passengersDS)
     val passengersOnMultipleFlightsInRange = FlightAnalysis.findPassengersOnMultipleFlightsInRange(flightsDS, "2017-01-09" , "2017-02-19", 6)
     passengersOnMultipleFlightsInRange.show(100000)
     passengersOnMultipleFlightsInRange.printSchema()

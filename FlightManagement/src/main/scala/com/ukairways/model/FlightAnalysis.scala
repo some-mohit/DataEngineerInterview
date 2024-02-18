@@ -1,15 +1,17 @@
 package com.ukairways.model
 
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions._
 
-
 object FlightAnalysis {
+  val spark = SparkSession.builder()
+    .appName("FlightAnalysis")
+    .master("local[*]")
+    .getOrCreate()
+
+  import spark.implicits._
 
   def findFlightsPerMonth(flightsDS: Dataset[Flight]): DataFrame = {
-    val spark = flightsDS.sparkSession
-    import spark.implicits._
-
     val flightDataWithDate = flightsDS.withColumn("date", to_date($"date"))
     val flightDataWithMonth = flightDataWithDate.withColumn("month", month($"date"))
     val flightsPerMonth = flightDataWithMonth.groupBy("month").count().sort("month")
@@ -17,8 +19,6 @@ object FlightAnalysis {
   }
 
   def findTopFrequentFlyers(passengersDS: Dataset[Passenger], flightsDS: Dataset[Flight]): DataFrame = {
-    val spark = flightsDS.sparkSession
-    import spark.implicits._
 
     val joinedDS = passengersDS.joinWith(flightsDS, passengersDS("passengerId") === flightsDS("passengerId"))
     val passengerFlightCounts = joinedDS.groupByKey(_._1).count().map { case (passenger, count) => (passenger.passengerId, passenger.firstName, passenger.lastName, count) }
@@ -26,20 +26,30 @@ object FlightAnalysis {
     top100FrequentFlyers
   }
 
-  def findMaxCountriesWithoutUK(flightsDS: Dataset[Flight]): Int = {
-    val spark = flightsDS.sparkSession
-    import spark.implicits._
+  def findMaxCountriesWithoutUK(flightsDS: Dataset[Flight]): Dataset[(Int,Long)] = {
+    // Filter out flights where both from and to are the UK
+    val nonUKFlights = flightsDS.filter($"from" =!= "uk" && $"to" =!= "uk")
+    nonUKFlights.show(100000)
+    // Group flights by passengerId and collect the distinct countries visited
+    val dataWithCountries = nonUKFlights.groupBy("passengerId")
+      .agg(
+        concat_ws(",", collect_list(col("from"))).alias("countries")
+      )
 
-    val nonUKFlights = flightsDS.filter($"from" =!= "UK" && $"to" =!= "UK")
-    val countriesVisited = nonUKFlights.groupBy($"passengerId").agg(countDistinct($"to").alias("numCountries"))
-    val maxCountries = countriesVisited.agg(max($"numCountries")).collect()(0)(0).asInstanceOf[Long].toInt
-    maxCountries
+    // Calculate the longest run of consecutive unique countries visited for each passenger
+    val passengerLongestRuns = dataWithCountries.withColumn(
+      "longest_run",
+      size(split(regexp_replace(col("countries"), ",{2,}", ","), ","))
+    )
+
+    // Select the passengerId and longest_run columns
+    val result = passengerLongestRuns.select($"passengerId", $"longest_run".as[Long])
+
+    result.as[(Int, Long)]
+
   }
 
   def findPassengersOnMultipleFlightsTogether(flightsDS: Dataset[Flight], passengersDS: Dataset[Passenger]): DataFrame = {
-    val spark = flightsDS.sparkSession
-    import spark.implicits._
-
     // Group flights by passengerId and flightId, and count the number of flights for each pair of passengers
     val passengerPairsFlightsCount = flightsDS.groupBy($"passengerId", $"flightId")
       .count()
