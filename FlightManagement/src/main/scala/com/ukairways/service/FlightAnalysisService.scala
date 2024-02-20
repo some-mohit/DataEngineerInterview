@@ -1,9 +1,8 @@
 package com.ukairways.service
 
 import com.ukairways.model.{Flight, FlightAnalysis, Passenger}
-import org.apache.spark.sql.functions.{collect_list, count,  struct}
 import org.apache.spark.sql.{Dataset, SparkSession}
-import org.apache.spark.sql.functions._
+
 object FlightAnalysisService {
 
   def main(args: Array[String]): Unit = {
@@ -25,7 +24,7 @@ object FlightAnalysisService {
     val flightsDS: Dataset[Flight] = spark.read
       .option("header", "true")
       .option("inferSchema", "true")
-      .csv("src/resources/flightData.csv")
+      .csv("src/resources/fd.csv")
       .as[Flight]
 
 
@@ -39,11 +38,9 @@ object FlightAnalysisService {
     val maxCountriesWithoutUK = FlightAnalysis.findMaxCountriesWithoutUK(flightsDS)
     maxCountriesWithoutUK.repartition(1).write.mode("overwrite").option("header", "true").csv("src/output/passenger-longest-run/")
 
-
-    val passengersOnMultipleFlights = FlightAnalysis.findPassengersOnMultipleFlightsTogether(flightsDS, passengersDS)
+    val passengersOnMultipleFlights = FlightAnalysis.findPassengersOnMultipleFlightsTogether(flightsDS)
     passengersOnMultipleFlights.repartition(1).write.mode("overwrite").option("header", "true").csv("src/output/passenger-with-multiple-flights/")
-    passengersOnMultipleFlights.show(10)
-    passengersOnMultipleFlights.printSchema()
+
     spark.stop()
 
   }
