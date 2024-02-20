@@ -27,39 +27,35 @@ object FlightAnalysis {
   }
 
   def findMaxCountriesWithoutUK(flightsDS: Dataset[Flight]): Dataset[(Int,Long)] = {
+
     // Filter out flights where both from and to are the UK
-    val nonUKFlights = flightsDS.filter($"from" =!= "uk" && $"to" =!= "uk")
-    nonUKFlights.show(100000)
-    // Group flights by passengerId and collect the distinct countries visited
-    val dataWithCountries = nonUKFlights.groupBy("passengerId")
-      .agg(
-        concat_ws(",", collect_list(col("from"))).alias("countries")
-      )
+    val nonUKFlights = flightsDS.filter(lower($"from") =!= "uk" && lower($"to") =!= "uk")
 
-    // Calculate the longest run of consecutive unique countries visited for each passenger
-    val passengerLongestRuns = dataWithCountries.withColumn(
-      "longest_run",
-      size(split(regexp_replace(col("countries"), ",{2,}", ","), ","))
-    )
+    // Extract distinct countries visited by each passenger
+    val distinctCountries = nonUKFlights
+      .select($"passengerId", explode(array($"from", $"to")).alias("country"))
+      .distinct()
 
-    // Select the passengerId and longest_run columns
-    val result = passengerLongestRuns.select($"passengerId", $"longest_run".as[Long])
-
-    result.as[(Int, Long)]
-
+    // Count the number of distinct countries visited by each passenger
+    val countriesCount = distinctCountries
+      .groupBy("passengerId")
+      .agg(count("*").alias("longestRun"))
+      .orderBy($"longestRun".desc)
+    countriesCount.as[(Int, Long)]
   }
 
   def findPassengersOnMultipleFlightsTogether(flightsDS: Dataset[Flight], passengersDS: Dataset[Passenger]): DataFrame = {
+
     // Group flights by passengerId and flightId, and count the number of flights for each pair of passengers
     val passengerPairsFlightsCount = flightsDS.groupBy($"passengerId", $"flightId")
       .count()
 
-    // Group the flights by passengerId to find the pairs who have flown together
+    // Join the DataFrame with itself to find the pairs who have flown together
     val passengerPairs = passengerPairsFlightsCount.as("flights1")
       .join(passengerPairsFlightsCount.as("flights2"),
         $"flights1.flightId" === $"flights2.flightId" &&
           $"flights1.passengerId" < $"flights2.passengerId")
-      .groupBy($"flights1.passengerId", $"flights2.passengerId")
+      .groupBy($"flights1.passengerId".alias("passengerId1"), $"flights2.passengerId".alias("passengerId2"))
       .agg(count("*").alias("flightsTogether"))
 
     // Filter for pairs who have flown together more than 3 times
@@ -71,9 +67,6 @@ object FlightAnalysis {
 
 
   def findPassengersOnMultipleFlightsInRange(flightsDS: Dataset[Flight], from_date: String, to_flight_date: String, travelCount: Int): Dataset[(Int, Int, String, String, Long)] = {
-
-    val spark = flightsDS.sparkSession
-    import spark.implicits._
 
     // Filter flights within the specified date range
     val filteredFlightsDS = flightsDS.filter($"date".between(from_date, to_flight_date))

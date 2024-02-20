@@ -1,6 +1,7 @@
 package com.ukairways.service
 
 import com.ukairways.model.{Flight, FlightAnalysis, Passenger}
+import org.apache.spark.sql.functions.{collect_list, count,  struct}
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.sql.functions._
 object FlightAnalysisService {
@@ -30,30 +31,21 @@ object FlightAnalysisService {
 
     // Perform flight analysis tasks using FlightAnalysis object methods
     val flightsPerMonth = FlightAnalysis.findFlightsPerMonth(flightsDS)
+    flightsPerMonth.repartition(1).write.mode("overwrite").option("header", "true").csv("src/output/flights-per-month/")
+
     val topFrequentFlyers = FlightAnalysis.findTopFrequentFlyers(passengersDS, flightsDS)
+    topFrequentFlyers.repartition(1).write.mode("overwrite").option("header", "true").csv("src/output/top-frequent-flyer/")
+
     val maxCountriesWithoutUK = FlightAnalysis.findMaxCountriesWithoutUK(flightsDS)
+    maxCountriesWithoutUK.repartition(1).write.mode("overwrite").option("header", "true").csv("src/output/passenger-longest-run/")
+
+
     val passengersOnMultipleFlights = FlightAnalysis.findPassengersOnMultipleFlightsTogether(flightsDS, passengersDS)
-    val passengersOnMultipleFlightsInRange = FlightAnalysis.findPassengersOnMultipleFlightsInRange(flightsDS, "2017-01-09" , "2017-02-19", 6)
-    passengersOnMultipleFlightsInRange.show(100000)
-    passengersOnMultipleFlightsInRange.printSchema()
-    // Show the results or write to files as required
-    /*
-    flightsPerMonth.show()
-
-    flightsPerMonth.printSchema()
-
-    topFrequentFlyers.show()
-    topFrequentFlyers.printSchema()
-
-    println(maxCountriesWithoutUK)
-
-    */
-
-
-
-
-    // Stop SparkSession
+    passengersOnMultipleFlights.repartition(1).write.mode("overwrite").option("header", "true").csv("src/output/passenger-with-multiple-flights/")
+    passengersOnMultipleFlights.show(10)
+    passengersOnMultipleFlights.printSchema()
     spark.stop()
+
   }
 
 }
