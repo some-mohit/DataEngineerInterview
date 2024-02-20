@@ -76,6 +76,6 @@ All the flight and passenger data reports are stored/kept in output folder ```sr
 
 ## Dependencies
 The project has the following dependencies:
-Apache Spark (2.4.8): A fast and general-purpose cluster computing system.
-SBT (Scala Build Tool): A build tool for Scala projects.
-Scala Version : 2.12.10
+###### Apache Spark (2.4.8): A fast and general-purpose cluster computing system.
+###### SBT (Scala Build Tool): A build tool for Scala projects.
+###### Scala Version : 2.12.10
